@@ -61,10 +61,18 @@ class MiDisponibleApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF6F5FF),
         fontFamily: 'Roboto',
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
+          backgroundColor: Color(0xFFF6F5FF),
+          foregroundColor: Color(0xFF111827),
           elevation: 0,
           centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: Color(0xFF111827),
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+          ),
+          iconTheme: IconThemeData(
+            color: Color(0xFF111827),
+          ),
         ),
         cardTheme: CardThemeData(
           elevation: 0,
@@ -503,6 +511,7 @@ class _InicioScreenState extends State<InicioScreen> {
   int frecuenciaSueldo = 30;
   DateTime? fechaUltimoSueldo;
   double ahorroAcumulado = 0;
+  String nombreUsuario = '';
   bool cargando = true;
 
   @override
@@ -524,6 +533,7 @@ class _InicioScreenState extends State<InicioScreen> {
     final pagosPrestamoTexto = prefs.getString('pagosPrestamo');
     final metasTexto = prefs.getString('metasAhorro');
     final presupuestosTexto = prefs.getString('presupuestosCategoria');
+    final nombreTexto = prefs.getString('nombreUsuario');
 
     if (gastosTexto != null) {
       final lista = jsonDecode(gastosTexto) as List;
@@ -580,11 +590,18 @@ class _InicioScreenState extends State<InicioScreen> {
     }
 
     ahorroAcumulado = prefs.getDouble('ahorroAcumulado') ?? 0;
+    nombreUsuario = nombreTexto ?? '';
     frecuenciaSueldo = prefs.getInt('frecuenciaSueldo') ?? 30;
 
     setState(() {
       cargando = false;
     });
+
+    if (nombreUsuario.trim().isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        pedirNombreUsuario(obligatorio: true);
+      });
+    }
   }
 
   Future<void> guardarDatos() async {
@@ -646,6 +663,7 @@ class _InicioScreenState extends State<InicioScreen> {
     }
 
     await prefs.setDouble('ahorroAcumulado', ahorroAcumulado);
+    await prefs.setString('nombreUsuario', nombreUsuario);
     await prefs.setInt('frecuenciaSueldo', frecuenciaSueldo);
   }
 
@@ -996,6 +1014,52 @@ class _InicioScreenState extends State<InicioScreen> {
     }
   }
 
+  Future<void> pedirNombreUsuario({bool obligatorio = false}) async {
+    final controller = TextEditingController(text: nombreUsuario);
+
+    final nombre = await showDialog<String>(
+      context: context,
+      barrierDismissible: !obligatorio,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('¿Cómo te llamas?'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Tu nombre',
+              hintText: 'Ejemplo: Alex',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            if (!obligatorio)
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+            ElevatedButton(
+              onPressed: () {
+                final valor = controller.text.trim();
+                if (valor.isEmpty) return;
+                Navigator.pop(context, valor);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (nombre != null && nombre.trim().isNotEmpty) {
+      setState(() {
+        nombreUsuario = nombre.trim();
+      });
+      await guardarDatos();
+    }
+  }
+
   Future<void> editarAhorroAcumulado() async {
     final controller = TextEditingController(
       text: ahorroAcumulado.toStringAsFixed(2),
@@ -1301,7 +1365,142 @@ class _InicioScreenState extends State<InicioScreen> {
     );
   }
 
+  void abrirMenuMas() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF6F5FF),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(30),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 45,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const SizedBox(height: 18),
 
+              const Text(
+                'Más opciones',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEDEBFF),
+                  child: Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: Color(0xFF5A55F2),
+                  ),
+                ),
+                title: const Text(
+                  'Presupuestos',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text('Configura límite mensual por categoría'),
+                onTap: () {
+                  Navigator.pop(context);
+                  abrirPresupuestos();
+                },
+              ),
+
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEDEBFF),
+                  child: Icon(
+                    Icons.flag_outlined,
+                    color: Color(0xFF5A55F2),
+                  ),
+                ),
+                title: const Text(
+                  'Metas de ahorro',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text('Organiza tu ahorro acumulado'),
+                onTap: () {
+                  Navigator.pop(context);
+                  abrirMetasAhorro();
+                },
+              ),
+
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEDEBFF),
+                  child: Icon(
+                    Icons.speed,
+                    color: Color(0xFF5A55F2),
+                  ),
+                ),
+                title: const Text(
+                  'Score financiero',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text('Revisa tu salud financiera'),
+                onTap: () {
+                  Navigator.pop(context);
+                  abrirScoreFinanciero();
+                },
+              ),
+
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEDEBFF),
+                  child: Icon(
+                    Icons.trending_up,
+                    color: Color(0xFF5A55F2),
+                  ),
+                ),
+                title: const Text(
+                  'Proyección',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text('Mira cómo podría avanzar tu dinero'),
+                onTap: () {
+                  Navigator.pop(context);
+                  abrirProyeccion();
+                },
+              ),
+
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFFEEF2),
+                  child: Icon(
+                    Icons.notifications_active_outlined,
+                    color: Color(0xFFFF5C7A),
+                  ),
+                ),
+                title: const Text(
+                  'Notificaciones',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text('Pagos, cuotas y vencimientos próximos'),
+                onTap: () {
+                  Navigator.pop(context);
+                  abrirNotificaciones();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   Map<String, double> presupuestoMap() {
     return {
@@ -1331,7 +1530,6 @@ class _InicioScreenState extends State<InicioScreen> {
     for (final categoria in categoriasBase) {
       final presupuesto = presupuestoCategoria(categoria);
       final gastado = gastoCategoriaMes(categoria);
-
       resultado[categoria] = presupuesto - gastado;
     }
 
@@ -1370,14 +1568,30 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   Future<void> compartirApp() async {
-    const mensaje = 'Estoy usando Mi Disponible para controlar gastos, tarjetas, préstamos, metas y presupuestos. Te la recomiendo para cuidar mejor tu dinero.';
+    const mensaje = '''
+💰 Estoy usando Mi Disponible
+
+Controla:
+✅ Gastos
+✅ Presupuestos
+✅ Tarjetas de crédito
+✅ Préstamos
+✅ Metas de ahorro
+
+📲 Descargar Mi Disponible:
+https://bit.ly/MiDisponibleAppNS
+''';
+
     await Clipboard.setData(const ClipboardData(text: mensaje));
     if (!mounted) return;
+
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Compartir app'),
-        content: const Text('Copié un mensaje de invitación. Pégalo en WhatsApp o envíaselo a tus amigos y familiares.'),
+        content: const Text(
+          'Copié el mensaje de invitación. Pégalo en WhatsApp, Telegram o donde quieras compartirlo.',
+        ),
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
@@ -1506,47 +1720,65 @@ class _InicioScreenState extends State<InicioScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+        ),
         title: Row(
           children: [
-            Container(
-              height: 42,
-              width: 42,
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.22),
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: Text(
-                  'MD',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
+            InkWell(
+              borderRadius: BorderRadius.circular(30),
+              onTap: () => pedirNombreUsuario(),
+              child: Container(
+                height: 42,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.18),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.32)),
+                ),
+                child: Center(
+                  child: Text(
+                    nombreUsuario.isEmpty
+                        ? 'MD'
+                        : nombreUsuario.substring(0, 1).toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Container(
-                height: 42,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.22),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.search, color: Colors.white, size: 22),
-                    SizedBox(width: 8),
-                    Text(
-                      'Buscar',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Hola, ${nombreUsuario.isEmpty ? 'usuario' : nombreUsuario} 👋',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Controla tu dinero diario',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1584,11 +1816,11 @@ class _InicioScreenState extends State<InicioScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFA9B5FF),
-              Color(0xFF7F77F4),
+              Color(0xFFC2C8FF),
+              Color(0xFF7C3AED),
               Color(0xFFF6F5FF),
             ],
-            stops: [0.0, 0.42, 0.42],
+            stops: [0.0, 0.38, 0.38],
           ),
         ),
         child: SafeArea(
@@ -1596,9 +1828,9 @@ class _InicioScreenState extends State<InicioScreen> {
             physics: const BouncingScrollPhysics(),
             child: Column(
               children: [
-                const SizedBox(height: 86),
+                const SizedBox(height: 24),
                 const Text(
-                  'Mi Disponible · PEN',
+                  'Disponible real · PEN',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -1631,66 +1863,7 @@ class _InicioScreenState extends State<InicioScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 54),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _RevolutAction(
-                        icon: Icons.remove,
-                        label: 'Gasto',
-                        onTap: () async {
-                          final nuevoGasto = await Navigator.push<Gasto>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => RegistrarGastoScreen(
-                                tarjetas: tarjetas,
-                                gastos: gastos,
-                                presupuestos: presupuestoRestantePorCategoria,
-                                puedesGastarHoy: puedesGastarHoy,
-                              )
-                            ),
-                          );
-
-                          if (nuevoGasto != null) {
-                            setState(() {
-                              gastos.add(nuevoGasto);
-                            });
-                            await guardarDatos();
-                          }
-                        },
-                      ),
-                      _RevolutAction(
-                        icon: Icons.add,
-                        label: 'Ingreso',
-                        onTap: () async {
-                          final nuevoIngreso = await Navigator.push<Ingreso>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const RegistrarIngresoScreen(),
-                            ),
-                          );
-
-                          if (nuevoIngreso != null) {
-                            await procesarIngreso(nuevoIngreso);
-                          }
-                        },
-                      ),
-                      _RevolutAction(
-                        icon: Icons.pie_chart_rounded,
-                        label: 'Dashboard',
-                        onTap: abrirDashboardCategorias,
-                      ),
-                      _RevolutAction(
-                        icon: Icons.more_horiz,
-                        label: 'Más',
-                        onTap: abrirNotificaciones,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 30),
                 Container(
                   width: double.infinity,
                   decoration: const BoxDecoration(
@@ -1698,9 +1871,65 @@ class _InicioScreenState extends State<InicioScreen> {
                     borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 22, 18, 28),
+                    padding: const EdgeInsets.fromLTRB(18, 24, 18, 28),
                     child: Column(
                       children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _RevolutAction(
+                              icon: Icons.remove,
+                              label: 'Gasto',
+                              onTap: () async {
+                                final nuevoGasto = await Navigator.push<Gasto>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => RegistrarGastoScreen(
+                                      tarjetas: tarjetas,
+                                      gastos: gastos,
+                                      presupuestos: presupuestoRestantePorCategoria,
+                                      puedesGastarHoy: puedesGastarHoy,
+                                    ),
+                                  ),
+                                );
+
+                                if (nuevoGasto != null) {
+                                  setState(() {
+                                    gastos.add(nuevoGasto);
+                                  });
+                                  await guardarDatos();
+                                }
+                              },
+                            ),
+                            _RevolutAction(
+                              icon: Icons.add,
+                              label: 'Ingreso',
+                              onTap: () async {
+                                final nuevoIngreso = await Navigator.push<Ingreso>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const RegistrarIngresoScreen(),
+                                  ),
+                                );
+
+                                if (nuevoIngreso != null) {
+                                  await procesarIngreso(nuevoIngreso);
+                                }
+                              },
+                            ),
+                            _RevolutAction(
+                              icon: Icons.pie_chart_rounded,
+                              label: 'Dashboard',
+                              onTap: abrirDashboardCategorias,
+                            ),
+                            _RevolutAction(
+                              icon: Icons.more_horiz,
+                              label: 'Más',
+                              onTap: abrirMenuMas,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(18),
@@ -1806,32 +2035,13 @@ class _InicioScreenState extends State<InicioScreen> {
                             ),
                           ),
                         const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _PillButton(
-                                icon: Icons.credit_card,
-                                label: 'Tarjetas',
-                                onTap: abrirTarjetas,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _PillButton(
-                                icon: Icons.account_balance,
-                                label: 'Préstamos',
-                                onTap: abrirPrestamos,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _PillButton(
-                                icon: Icons.history,
-                                label: 'Historial',
-                                onTap: abrirHistorial,
-                              ),
-                            ),
-                          ],
+                        SizedBox(
+                          width: double.infinity,
+                          child: _PillButton(
+                            icon: Icons.history,
+                            label: 'Ver historial completo',
+                            onTap: abrirHistorial,
+                          ),
                         ),
                         const SizedBox(height: 14),
                         Container(
@@ -2396,25 +2606,40 @@ class _RevolutAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(24),
       onTap: onTap,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            height: 70,
-            width: 70,
+            height: 58,
+            width: 58,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.28),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.white, size: 32),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            label,
-            style: const TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.w800,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: const Color(0xFF5A55F2), size: 28),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 78,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF111827),
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
             ),
           ),
         ],
